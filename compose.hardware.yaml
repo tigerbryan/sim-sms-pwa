@@ -1,0 +1,46 @@
+# Hardware mode is deliberately opt-in. The installer writes the selected
+# current cdc-wdm node and its current character-device major:minor values.
+# This file never maps /dev broadly, an AT serial port, or the Docker socket.
+name: qmi-web
+
+services:
+  qmi-web:
+    image: local/qmi-web:1.1.0
+    container_name: qmi-web
+    restart: unless-stopped
+    environment:
+      QMI_WEB_BACKEND: qmi
+      QMI_WEB_DEVICE: "${QMI_DEVICE:?select exactly one /dev/cdc-wdmX node}"
+      QMI_WEB_SMS_ONLY: "true"
+      QMI_WEB_REAL_VALIDATION: "false"
+      QMI_WEB_REAL_VALIDATION_WINDOW: "60m"
+      QMI_WEB_REAL_VALIDATION_STATUS_FILE: "/data/app-status.json"
+      QMI_WEB_SMS_RECONCILE_INTERVAL: "60s"
+      QMI_WEB_DEVICE_RECONNECT_MAX_BACKOFF: "30s"
+      QMI_WEB_DEBUG_STORE_PDU: "false"
+    ports:
+      - "127.0.0.1:${QMI_WEB_PORT:-7580}:7580"
+    volumes:
+      - "${QMI_WEB_DATA:-./data}:/data"
+      - "${QMI_WEB_CONFIG:-./config}:/config:ro"
+      - "${QMI_WEB_LOGS:-./logs}:/logs"
+      - type: bind
+        source: "${QMI_DEVICE:?select exactly one /dev/cdc-wdmX node}"
+        target: "${QMI_DEVICE:?select exactly one /dev/cdc-wdmX node}"
+        read_only: false
+        bind:
+          create_host_path: false
+    device_cgroup_rules:
+      - "c ${QMI_DEVICE_MAJOR:?detect current character-device major}:${QMI_DEVICE_MINOR:?detect current character-device minor} rw"
+    user: "65532:65532"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_add: []
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    privileged: false
+    mem_limit: 256m
+    network_mode: bridge

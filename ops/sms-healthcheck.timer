@@ -1,0 +1,8 @@
+[Unit]
+Description=Check SMS services every minute
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=60s
+AccuracySec=5s
+[Install]
+WantedBy=timers.target

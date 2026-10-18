@@ -1,0 +1,15 @@
+[Unit]
+Description=SMS application and HTTPS recovery check
+After=qmi-web.service apache2.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sms-healthcheck
+TimeoutStartSec=90
+RuntimeDirectory=sms-healthcheck
+RuntimeDirectoryPreserve=yes
+RuntimeDirectoryMode=0750
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/run/sms-healthcheck
+PrivateTmp=yes

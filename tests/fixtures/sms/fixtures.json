@@ -1,0 +1,20 @@
+{
+  "gsm7_deliver_full_pdu": "079144872000302320048102020000625061028204401AD9775D0E72D7DBE2B21C949E8360B75A4E7683D16AB71B",
+  "ucs2_chinese_deliver_tpdu": "040B912143658709F1000862507241900000044F60597D",
+  "multipart_2": {
+    "reference_bits": 8,
+    "reference": 9,
+    "parts": ["hello ", "world"]
+  },
+  "multipart_3_out_of_order": {
+    "reference_bits": 16,
+    "reference": 513,
+    "arrival_order": [3, 1, 2],
+    "parts": ["one ", "two ", "three"]
+  },
+  "duplicate_part": {
+    "reference": 9,
+    "sequence": 1
+  },
+  "invalid_pdu_hex": "0401"
+}

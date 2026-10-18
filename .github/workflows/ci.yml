@@ -1,0 +1,42 @@
+name: verify
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Frontend and embedded application build
+        run: make build
+      - name: Go test and vet
+        run: |
+          go test -mod=vendor -buildvcs=false ./...
+          go vet -mod=vendor -buildvcs=false ./...
+      - name: Receive-only safety, privacy and ops tests
+        run: |
+          ./scripts/verify-security.sh
+          python3 scripts/check-public-tree.py
+          python3 -m unittest discover -s ops -p 'test_*.py'
+          python3 -m unittest discover -s scripts/test -p 'test_*.py'
+      - name: Linux native installer mock smoke test
+        run: |
+          sudo ./scripts/install-native.sh --binary ./build/qmi-web --mock
+          curl -fsS http://127.0.0.1:7580/ready
+          sudo systemctl is-active qmi-web
+          sudo systemctl stop qmi-web
+      - name: Cross-compile supported Linux architectures
+        run: |
+          for arch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -mod=vendor -buildvcs=false -trimpath -o "build/qmi-web-linux-$arch" ./cmd/server
+          done

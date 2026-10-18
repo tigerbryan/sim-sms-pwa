@@ -1,0 +1,27 @@
+server:
+  address: "127.0.0.1"
+  port: 7580
+backend:
+  type: "mock"
+security:
+  sms_only: true
+device:
+  scan_interval: 30s
+  # Bounded retry cadence for a released/restarted QMI device. It never resets
+  # the USB modem or starts a packet-data session.
+  reconnect_max_backoff: 30s
+  allowed_vids: []
+  # Only compose.real-test.yaml supplies this. Production stays blank and
+  # therefore remains no-device.
+  control_path: ""
+  real_validation: false
+sms:
+  poll_on_start: true
+  # Reconcile inbound WMS storage as a fallback if an indication is missed.
+  reconcile_interval: 60s
+  sending_enabled: false
+  store_raw_pdu: false
+notifications:
+  pushplus_enabled: false
+logging:
+  level: "info"

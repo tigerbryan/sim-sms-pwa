@@ -1,0 +1,770 @@
+package qmi
+
+import (
+	"encoding/binary"
+	"fmt"
+)
+
+// ============================================================================
+// QMUX Service Types (from QCQMI.h) / QMUX服务类型 
+// ============================================================================
+
+// ServiceType constants are uint16 so that QRTR-only services beyond the
+// 8-bit QMUX range (e.g. SSC 0x190, IMSDCM 0x302) are addressable end to
+// end. Real QMUX/qmi-proxy devices are unaffected: they never expose a
+// service > 0xFF, so every constant below still round-trips through the
+// byte-identical real 6-byte QMUX (0x01) wire header (see marshalFrameHeader
+// / QmuxHeader, which intentionally stays 8-bit -- that is the actual wire
+// format's ceiling, not a code choice). Only services > 0xFF switch to the
+// synthetic 7-byte QRTR virtual header (0x02, see QrtrVirtualHeader), which
+// is exchanged solely with this package's own local QRTR CTL simulation and
+// never sent to a real modem. / ServiceType 常量类型为 uint16，使超出 8 位
+// QMUX 范围的 QRTR 专属服务（如 SSC 0x190、IMSDCM 0x302）可被端到端寻址。
+// 真实 QMUX/qmi-proxy 设备不受影响：它们从不会暴露 >0xFF 的服务，因此下面
+// 每个常量仍然通过与此前字节级一致的真实 6 字节 QMUX（0x01）线格式头往返
+// （见 marshalFrameHeader / QmuxHeader，后者刻意保持 8 位——这是线格式本身
+// 的上限，而非代码选择）。只有 >0xFF 的服务才会切换到合成的 7 字节 QRTR
+// 虚拟头（0x02，见 QrtrVirtualHeader），且该虚拟头只会与本包自身的本地
+// QRTR CTL 模拟交换，绝不会发往真实 modem。
+const (
+	ServiceControl uint16 = 0x00 // CTL - Control
+	ServiceWDS     uint16 = 0x01 // WDS - Wireless Data Service
+	ServiceDMS     uint16 = 0x02 // DMS - Device Management Service
+	ServiceNAS     uint16 = 0x03 // NAS - Network Access Stratum
+	ServiceQOS     uint16 = 0x04 // QOS - Quality of Service
+	ServiceWMS     uint16 = 0x05 // WMS - Wireless Messaging Service
+	ServicePDS     uint16 = 0x06 // PDS - Position Determination Service
+	ServiceAUTH    uint16 = 0x07 // AUTH - Authentication
+	ServiceVOICE   uint16 = 0x09 // VOICE - Voice Service
+	ServiceCAT2    uint16 = 0x0A // CAT2 - Card Application Toolkit
+	ServiceUIM     uint16 = 0x0B // UIM - User Identity Module
+	ServicePBM     uint16 = 0x0C // PBM - Phonebook Manager
+	ServiceIMS     uint16 = 0x12 // IMS - IP Multimedia Subsystem Settings
+	ServiceWDA     uint16 = 0x1A // WDA - Wireless Data Admin
+	ServiceIMSP    uint16 = 0x1F // IMSP - IMS Presence Service
+	ServiceWDSIPv6 uint16 = 0x1B // WDS for IPv6 (internal use)
+	ServiceIMSA    uint16 = 0x21 // IMSA - IMS Application Service
+	ServiceCOEX    uint16 = 0x22 // COEX - Coexistence
+)
+
+// ============================================================================
+// WDS Message IDs (from QCQMUX.h) / WDS 消息ID (来自QCQMUX.h)
+// ============================================================================
+
+const (
+	WDSSetEventReport        uint16 = 0x0001 // QMIWDS_SET_EVENT_REPORT_REQ
+	WDSEventReportInd        uint16 = 0x0001 // QMIWDS_EVENT_REPORT_IND
+	WDSStartNetworkInterface uint16 = 0x0020 // QMIWDS_START_NETWORK_INTERFACE_REQ
+	WDSStopNetworkInterface  uint16 = 0x0021 // QMIWDS_STOP_NETWORK_INTERFACE_REQ
+	WDSGetPktSrvcStatus      uint16 = 0x0022 // QMIWDS_GET_PKT_SRVC_STATUS_REQ
+	WDSGetPktSrvcStatusInd   uint16 = 0x0022 // QMIWDS_GET_PKT_SRVC_STATUS_IND
+	WDSGetCurrentChannelRate uint16 = 0x0023 // QMIWDS_GET_CURRENT_CHANNEL_RATE_REQ
+	WDSGetPktStatistics      uint16 = 0x0024 // QMIWDS_GET_PKT_STATISTICS_REQ
+	WDSGetProfileList        uint16 = 0x002A // QMIWDS_GET_PROFILE_LIST_REQ
+	WDSGetProfileSettings    uint16 = 0x002B // QMIWDS_GET_PROFILE_SETTINGS_REQ
+	WDSGetDefaultSettings    uint16 = 0x002C // QMIWDS_GET_DEFAULT_SETTINGS_REQ
+	WDSGetRuntimeSettings    uint16 = 0x002D // QMIWDS_GET_RUNTIME_SETTINGS_REQ
+	WDSSetClientIPFamilyPref uint16 = 0x004D // QMIWDS_SET_CLIENT_IP_FAMILY_PREF_REQ
+	WDSBindMuxDataPort       uint16 = 0x00A2 // QMIWDS_BIND_MUX_DATA_PORT_REQ
+)
+
+// ============================================================================
+// WMS Message IDs
+// ============================================================================
+
+const (
+	WMSSetEventReport                        uint16 = 0x0001 // QMIWMS_SET_EVENT_REPORT_REQ
+	WMSEventReportInd                        uint16 = 0x0001 // QMIWMS_EVENT_REPORT_IND
+	WMSRawSend                               uint16 = 0x0020 // QMIWMS_RAW_SEND_REQ
+	WMSRawWrite                              uint16 = 0x0021 // QMIWMS_RAW_WRITE_REQ
+	WMSRawRead                               uint16 = 0x0022 // QMIWMS_RAW_READ_REQ
+	WMSDelete                                uint16 = 0x0024 // QMIWMS_DELETE_REQ
+	WMSListMessages                          uint16 = 0x0031 // QMIWMS_LIST_MESSAGES_REQ
+	WMSSMSCAddressInd                        uint16 = 0x0046 // QMIWMS_SMSC_ADDRESS_IND
+	WMSTransportNetworkRegistrationStatusInd uint16 = 0x004B // QMIWMS_TRANSPORT_NW_REG_STATUS_IND
+)
+
+// ============================================================================
+// NAS Message IDs
+// ============================================================================
+
+const (
+	NASReset                     uint16 = 0x0000 // QMINAS_RESET_REQ
+	NASAbort                     uint16 = 0x0001 // QMINAS_ABORT_REQ
+	NASSetEventReport            uint16 = 0x0002 // QMINAS_SET_EVENT_REPORT_REQ
+	NASEventReportInd            uint16 = 0x0002 // QMINAS_EVENT_REPORT_IND
+	NASRegisterIndications       uint16 = 0x0003 // QMINAS_REGISTER_INDICATIONS_REQ
+	NASGetSignalStrength         uint16 = 0x0020 // QMINAS_GET_SIGNAL_STRENGTH_REQ
+	NASPerformNetworkScan        uint16 = 0x0021 // QMINAS_NETWORK_SCAN_REQ
+	NASInitiateNetworkRegister   uint16 = 0x0022 // QMINAS_INITIATE_NETWORK_REGISTER_REQ
+	NASAttachDetach              uint16 = 0x0023 // QMINAS_ATTACH_DETACH_REQ
+	NASGetServingSystem          uint16 = 0x0024 // QMINAS_GET_SERVING_SYSTEM_REQ
+	NASServingSystemInd          uint16 = 0x0024 // QMINAS_SERVING_SYSTEM_IND
+	NASGetOperatorName           uint16 = 0x0039 // QMINAS_GET_OPERATOR_NAME_REQ
+	NASOperatorNameInd           uint16 = 0x003A // QMINAS_OPERATOR_NAME_IND
+	NASGetPLMNName               uint16 = 0x0044 // QMINAS_GET_PLMN_NAME_REQ
+	NASGetSysInfo                uint16 = 0x004D // QMINAS_GET_SYS_INFO_REQ
+	NASNetworkTimeInd            uint16 = 0x004C // QMINAS_NETWORK_TIME_IND
+	NASSysInfoInd                uint16 = 0x004E // QMINAS_SYS_INFO_IND
+	NASGetSignalInfo             uint16 = 0x004F // QMINAS_GET_SIGNAL_INFO_REQ
+	NASConfigSignalInfo          uint16 = 0x0050 // QMINAS_CONFIG_SIGNAL_INFO_REQ
+	NASSignalInfoInd             uint16 = 0x0051 // QMINAS_SIGNAL_INFO_IND
+	NASConfigSignalInfoV2        uint16 = 0x006C // QMINAS_CONFIG_SIGNAL_INFO_V2_REQ
+	NASNetworkRejectInd          uint16 = 0x0068 // QMINAS_NETWORK_REJECT_IND
+	NASGetNetworkTime            uint16 = 0x007D // QMINAS_GET_NETWORK_TIME_REQ
+	NASIncrementalNetworkScan    uint16 = 0x0085 // QMINAS_INCREMENTAL_NETWORK_SCAN_REQ
+	NASIncrementalNetworkScanInd uint16 = 0x0085 // QMINAS_INCREMENTAL_NETWORK_SCAN_IND
+	NASGetTxRxInfo               uint16 = 0x005A // Get Tx Rx Info
+	NASGetLTECphyCAInfo          uint16 = 0x00AC // Get LTE Cphy CA Info
+)
+
+// ============================================================================
+// DMS Message IDs
+// ============================================================================
+
+const (
+	DMSGetDeviceSerialNumbers uint16 = 0x0025 // QMIDMS_GET_DEVICE_SERIAL_NUMBERS_REQ
+	DMSGetDeviceRevID         uint16 = 0x0023 // QMIDMS_GET_DEVICE_REV_ID_REQ
+	DMSUIMGetState            uint16 = 0x0044 // QMIDMS_UIM_GET_STATE_REQ
+	DMSUIMGetPINStatus        uint16 = 0x002B // QMIDMS_UIM_GET_PIN_STATUS_REQ
+	DMSUIMVerifyPIN           uint16 = 0x0028 // QMIDMS_UIM_VERIFY_PIN_REQ
+	DMSSetOperatingMode       uint16 = 0x002E // QMIDMS_SET_OPERATING_MODE_REQ
+	DMSGetOperatingMode       uint16 = 0x002D // QMIDMS_GET_OPERATING_MODE_REQ
+)
+
+// ============================================================================
+// UIM Message IDs
+// ============================================================================
+
+const (
+	UIMVerifyPIN           uint16 = 0x0026 // QMIUIM_VERIFY_PIN_REQ
+	UIMGetCardStatus       uint16 = 0x002F // QMIUIM_GET_CARD_STATUS_REQ
+	UIMOpenLogicalChannel  uint16 = 0x0042 // QMIUIM_OPEN_LOGICAL_CHANNEL_REQ
+	UIMCloseLogicalChannel uint16 = 0x003F // QMIUIM_CLOSE_LOGICAL_CHANNEL_REQ
+	UIMSendAPDU            uint16 = 0x003B // QMIUIM_SEND_APDU_REQ
+)
+
+// ============================================================================
+// CTL (Control Service) Message IDs
+// ============================================================================
+
+const (
+	CTLGetVersionInfo    uint16 = 0x0021 // QMICTL_GET_VERSION_REQ
+	CTLGetClientID       uint16 = 0x0022 // QMICTL_GET_CLIENT_ID_REQ
+	CTLReleaseClientID   uint16 = 0x0023 // QMICTL_RELEASE_CLIENT_ID_REQ
+	CTLRevokeClientIDInd uint16 = 0x0024 // QMICTL_REVOKE_CLIENT_ID_IND
+	CTLSetDataFormat     uint16 = 0x0026 // QMICTL_SET_DATA_FORMAT_REQ
+	CTLSync              uint16 = 0x0027 // QMICTL_SYNC_REQ
+	CTLInternalProxyOpen uint16 = 0xFF00 // libqmi qmi-proxy internal open request
+	TLVProxyDevicePath   uint8  = 0x01   // CTLInternalProxyOpen device path TLV
+)
+
+// ============================================================================
+// Connection Status Constants
+// ============================================================================
+
+const (
+	PktDataUnknown        uint8 = 0x00
+	PktDataDisconnected   uint8 = 0x01
+	PktDataConnected      uint8 = 0x02
+	PktDataSuspended      uint8 = 0x03
+	PktDataAuthenticating uint8 = 0x04
+)
+
+// IP Family Constants / IP族常量
+const (
+	IpFamilyV4 uint8 = 0x04
+	IpFamilyV6 uint8 = 0x06
+)
+
+// ============================================================================
+// QMUX Header Structure (matches C struct exactly) / QMUX头结构 (与C结构完全匹配)
+// ============================================================================
+
+// QmuxHeader represents the 6-byte QMUX header / QmuxHeader代表6字节QMUX头
+// Offset 0: IFType (always 0x01) / 偏移0: 接口类型 (QMUX始终为0x01)
+// Offset 1-2: Length (little-endian, total length after IFType) / 偏移1-2: 长度 (小端序，IFType之后的总长度)
+// Offset 3: ControlFlags (0x00 for normal, 0x80 for service) / 偏移3: 控制标志 (0x00为普通，0x80为服务)
+// Offset 4: ServiceType / 偏移4: 服务类型
+// Offset 5: ClientID / 偏移5: 客户端ID
+type QmuxHeader struct {
+	IFType       uint8
+	Length       uint16
+	ControlFlags uint8
+	ServiceType  uint8
+	ClientID     uint8
+}
+
+const QmuxHeaderSize = 6
+
+func (h *QmuxHeader) Marshal() []byte {
+	buf := make([]byte, QmuxHeaderSize)
+	buf[0] = 0x01 // IFType is always 0x01 for QMUX
+	binary.LittleEndian.PutUint16(buf[1:3], h.Length)
+	buf[3] = h.ControlFlags
+	buf[4] = h.ServiceType
+	buf[5] = h.ClientID
+	return buf
+}
+
+func UnmarshalQmuxHeader(data []byte) (*QmuxHeader, error) {
+	if len(data) < QmuxHeaderSize {
+		return nil, fmt.Errorf("data too short for QMUX header: %d", len(data))
+	}
+	if data[0] != 0x01 {
+		return nil, fmt.Errorf("invalid IFType: 0x%02x", data[0])
+	}
+	return &QmuxHeader{
+		IFType:       data[0],
+		Length:       binary.LittleEndian.Uint16(data[1:3]),
+		ControlFlags: data[3],
+		ServiceType:  data[4],
+		ClientID:     data[5],
+	}, nil
+}
+
+// ============================================================================
+// QRTR Virtual Header (7 bytes) / QRTR 虚拟包头 (7字节)
+//
+// Not a real wire format: this package's own synthetic envelope for
+// services whose ID exceeds the 8-bit QMUX ServiceType range. It is only
+// ever produced/consumed internally, exchanged between Client and its own
+// local QRTR CTL simulation (qrtrTransport) -- never sent to a real modem.
+// It needs one more byte than QmuxHeader (7 vs 6) purely because ServiceType
+// is 16-bit instead of 8-bit; everything else about the layout mirrors
+// QmuxHeader, including the "Length = TotalFrameSize - 1" convention, so
+// Client.readLoop's frame-length resync logic (which only reads bytes[1:3])
+// needs no header-size-awareness to handle both marker bytes.
+//
+// 并非真实线格式：这是本包为服务号超出 8 位 QMUX ServiceType 范围而设计的
+// 自有合成信封。它只会在内部产生/消费，在 Client 与其自身的本地 QRTR CTL
+// 模拟（qrtrTransport）之间交换——绝不会发往真实 modem。相比 QmuxHeader
+// 多出的 1 字节（7 对 6）纯粹是因为 ServiceType 是 16 位而非 8 位；其余布局
+// 均与 QmuxHeader 一致，包括 "Length = 总帧长度 - 1" 的约定，因此
+// Client.readLoop 的帧长度重同步逻辑（只读取 bytes[1:3]）无需感知头部大小
+// 差异即可同时处理两种标记字节。
+//
+// Offset 0: IFType (always 0x02) / 偏移0: 接口类型 (恒为 0x02)
+// Offset 1-2: Length (little-endian, total length after IFType) / 偏移1-2: 长度
+// Offset 3: ControlFlags / 偏移3: 控制标志
+// Offset 4-5: ServiceType (little-endian, 16-bit) / 偏移4-5: 服务类型 (小端序, 16位)
+// Offset 6: ClientID / 偏移6: 客户端ID
+type QrtrVirtualHeader struct {
+	IFType       uint8
+	Length       uint16
+	ControlFlags uint8
+	ServiceType  uint16
+	ClientID     uint8
+}
+
+const QrtrHeaderSize = 7
+
+func (h *QrtrVirtualHeader) Marshal() []byte {
+	buf := make([]byte, QrtrHeaderSize)
+	buf[0] = 0x02
+	binary.LittleEndian.PutUint16(buf[1:3], h.Length)
+	buf[3] = h.ControlFlags
+	binary.LittleEndian.PutUint16(buf[4:6], h.ServiceType)
+	buf[6] = h.ClientID
+	return buf
+}
+
+func UnmarshalQrtrVirtualHeader(data []byte) (*QrtrVirtualHeader, error) {
+	if len(data) < QrtrHeaderSize {
+		return nil, fmt.Errorf("data too short for QRTR virtual header: %d", len(data))
+	}
+	if data[0] != 0x02 {
+		return nil, fmt.Errorf("invalid IFType: 0x%02x", data[0])
+	}
+	return &QrtrVirtualHeader{
+		IFType:       data[0],
+		Length:       binary.LittleEndian.Uint16(data[1:3]),
+		ControlFlags: data[3],
+		ServiceType:  binary.LittleEndian.Uint16(data[4:6]),
+		ClientID:     data[6],
+	}, nil
+}
+
+// marshalFrameHeader builds the outer frame header (QMUX 0x01 or QRTR
+// virtual 0x02) for a body of bodyLen bytes, automatically picking the
+// narrower/real QMUX header whenever service fits in 8 bits -- which is
+// always true for real QMUX/qmi-proxy traffic, so those paths are
+// byte-for-byte unchanged. / marshalFrameHeader 为长度 bodyLen 的消息体构建
+// 外层帧头（QMUX 0x01 或 QRTR 虚拟 0x02），当 service 能放入 8 位时自动选用
+// 更窄的真实 QMUX 头——这对真实 QMUX/qmi-proxy 流量始终成立，因此这些路径
+// 字节级完全不变。
+func marshalFrameHeader(service uint16, clientID uint8, bodyLen int) []byte {
+	if service <= 0xFF {
+		h := QmuxHeader{
+			IFType:       0x01,
+			Length:       uint16(bodyLen + 5), // +5 for Length, CtlFlags, ServiceType, ClientID
+			ControlFlags: 0x00,
+			ServiceType:  uint8(service),
+			ClientID:     clientID,
+		}
+		return h.Marshal()
+	}
+	h := QrtrVirtualHeader{
+		IFType:       0x02,
+		Length:       uint16(bodyLen + 6), // +6 for Length, CtlFlags, ServiceType(2), ClientID
+		ControlFlags: 0x00,
+		ServiceType:  service,
+		ClientID:     clientID,
+	}
+	return h.Marshal()
+}
+
+// decodedFrameHeader is the header-size-agnostic result of parsing either a
+// QMUX or QRTR-virtual frame header. / decodedFrameHeader 是解析 QMUX 或
+// QRTR 虚拟帧头后、与头部大小无关的统一结果。
+type decodedFrameHeader struct {
+	headerSize   int
+	length       uint16
+	controlFlags uint8
+	serviceType  uint16
+	clientID     uint8
+}
+
+// unmarshalFrameHeader dispatches on the first marker byte (0x01 QMUX vs
+// 0x02 QRTR virtual) and returns a unified, header-size-agnostic view.
+// unmarshalFrameHeader 依据首字节标记（0x01 QMUX 或 0x02 QRTR 虚拟）分流，
+// 返回与头部大小无关的统一视图。
+func unmarshalFrameHeader(data []byte) (decodedFrameHeader, error) {
+	if len(data) < 1 {
+		return decodedFrameHeader{}, fmt.Errorf("data too short for frame header")
+	}
+	switch data[0] {
+	case 0x01:
+		h, err := UnmarshalQmuxHeader(data)
+		if err != nil {
+			return decodedFrameHeader{}, err
+		}
+		return decodedFrameHeader{
+			headerSize:   QmuxHeaderSize,
+			length:       h.Length,
+			controlFlags: h.ControlFlags,
+			serviceType:  uint16(h.ServiceType),
+			clientID:     h.ClientID,
+		}, nil
+	case 0x02:
+		h, err := UnmarshalQrtrVirtualHeader(data)
+		if err != nil {
+			return decodedFrameHeader{}, err
+		}
+		return decodedFrameHeader{
+			headerSize:   QrtrHeaderSize,
+			length:       h.Length,
+			controlFlags: h.ControlFlags,
+			serviceType:  h.ServiceType,
+			clientID:     h.ClientID,
+		}, nil
+	default:
+		return decodedFrameHeader{}, fmt.Errorf("invalid frame marker: 0x%02x", data[0])
+	}
+}
+
+// ============================================================================
+// CTL Service Header (6 bytes, different from regular services) / CTL服务头 (6字节，不同于普通服务)
+// ============================================================================
+
+// CTLHeader is used for Control Service (Service 0) / CTLHeader用于控制服务 (服务0)
+// Offset 0: ControlFlags (0x00 for request, 0x01 for response, 0x02 for indication) / 偏移0: 控制标志 (0x00请求, 0x01响应, 0x02指示)
+// Offset 1: TransactionID (1 byte for CTL!) / 偏移1: 事务ID (CTL服务仅1字节!)
+// Offset 2-3: MessageID (little-endian) / 偏移2-3: 消息ID (小端序)
+// Offset 4-5: Length (little-endian) / 偏移4-5: 长度 (小端序)
+type CTLHeader struct {
+	ControlFlags  uint8
+	TransactionID uint8
+	MessageID     uint16
+	Length        uint16
+}
+
+const CTLHeaderSize = 6
+
+func (h *CTLHeader) Marshal() []byte {
+	buf := make([]byte, CTLHeaderSize)
+	buf[0] = h.ControlFlags
+	buf[1] = h.TransactionID
+	binary.LittleEndian.PutUint16(buf[2:4], h.MessageID)
+	binary.LittleEndian.PutUint16(buf[4:6], h.Length)
+	return buf
+}
+
+func UnmarshalCTLHeader(data []byte) (*CTLHeader, error) {
+	if len(data) < CTLHeaderSize {
+		return nil, fmt.Errorf("data too short for CTL header: %d", len(data))
+	}
+	return &CTLHeader{
+		ControlFlags:  data[0],
+		TransactionID: data[1],
+		MessageID:     binary.LittleEndian.Uint16(data[2:4]),
+		Length:        binary.LittleEndian.Uint16(data[4:6]),
+	}, nil
+}
+
+// ============================================================================
+// Service Header (7 bytes, for services other than CTL) / 服务头 (7字节，用于除CTL外的服务)
+// ============================================================================
+
+// ServiceHeader is used for all services except Control (Service 0) / ServiceHeader用于除控制服务(Service 0)外的所有服务
+// Offset 0: ControlFlags / 偏移0: 控制标志
+// Offset 1-2: TransactionID (2 bytes, little-endian) / 偏移1-2: 事务ID (2字节，小端序)
+// Offset 3-4: MessageID (little-endian) / 偏移3-4: 消息ID (小端序)
+// Offset 5-6: Length (little-endian) / 偏移5-6: 长度 (小端序)
+type ServiceHeader struct {
+	ControlFlags  uint8
+	TransactionID uint16
+	MessageID     uint16
+	Length        uint16
+}
+
+const ServiceHeaderSize = 7
+
+func (h *ServiceHeader) Marshal() []byte {
+	buf := make([]byte, ServiceHeaderSize)
+	buf[0] = h.ControlFlags
+	binary.LittleEndian.PutUint16(buf[1:3], h.TransactionID)
+	binary.LittleEndian.PutUint16(buf[3:5], h.MessageID)
+	binary.LittleEndian.PutUint16(buf[5:7], h.Length)
+	return buf
+}
+
+func UnmarshalServiceHeader(data []byte) (*ServiceHeader, error) {
+	if len(data) < ServiceHeaderSize {
+		return nil, fmt.Errorf("data too short for Service header: %d", len(data))
+	}
+	return &ServiceHeader{
+		ControlFlags:  data[0],
+		TransactionID: binary.LittleEndian.Uint16(data[1:3]),
+		MessageID:     binary.LittleEndian.Uint16(data[3:5]),
+		Length:        binary.LittleEndian.Uint16(data[5:7]),
+	}, nil
+}
+
+// ============================================================================
+// TLV (Type-Length-Value) Structure
+// ============================================================================
+
+// TLV represents a single Type-Length-Value entry / TLV 代表单个 Type-Length-Value 条目
+type TLV struct {
+	Type  uint8
+	Value []byte
+}
+
+// TLVMeta contains a TLV type/length pair without exposing the raw payload.
+type TLVMeta struct {
+	Type   uint8
+	Length int
+}
+
+const TLVHeaderSize = 3 // 1 byte type + 2 bytes length / 1字节类型 + 2字节长度
+
+func (t *TLV) Marshal() []byte {
+	buf := make([]byte, TLVHeaderSize+len(t.Value))
+	buf[0] = t.Type
+	binary.LittleEndian.PutUint16(buf[1:3], uint16(len(t.Value)))
+	copy(buf[3:], t.Value)
+	return buf
+}
+
+func UnmarshalTLV(data []byte) (*TLV, int, error) {
+	if len(data) < TLVHeaderSize {
+		return nil, 0, fmt.Errorf("data too short for TLV header")
+	}
+	t := data[0]
+	l := binary.LittleEndian.Uint16(data[1:3])
+	if len(data) < int(TLVHeaderSize)+int(l) {
+		return nil, 0, fmt.Errorf("TLV value truncated: need %d, have %d", l, len(data)-TLVHeaderSize)
+	}
+	return &TLV{
+		Type:  t,
+		Value: data[TLVHeaderSize : TLVHeaderSize+int(l)],
+	}, TLVHeaderSize + int(l), nil
+}
+
+// ParseTLVs parses multiple TLVs from a byte slice / 从字节切片解析多个TLV
+func ParseTLVs(data []byte) ([]TLV, error) {
+	var tlvs []TLV
+	offset := 0
+	for offset < len(data) {
+		if len(data)-offset < TLVHeaderSize {
+			allZero := true
+			for _, b := range data[offset:] {
+				if b != 0x00 {
+					allZero = false
+					break
+				}
+			}
+			if allZero {
+				break
+			}
+		}
+		tlv, consumed, err := UnmarshalTLV(data[offset:])
+		if err != nil {
+			return tlvs, err
+		}
+		tlvs = append(tlvs, *tlv)
+		offset += consumed
+	}
+	return tlvs, nil
+}
+
+// FindTLV finds a TLV by type in a slice / 在切片中查找指定类型的TLV
+func FindTLV(tlvs []TLV, tlvType uint8) *TLV {
+	for i := range tlvs {
+		if tlvs[i].Type == tlvType {
+			return &tlvs[i]
+		}
+	}
+	return nil
+}
+
+// ============================================================================
+// QMI Packet (unified representation)
+// ============================================================================
+
+// Packet represents a complete QMI message / Packet代表一个完整的QMI消息
+type Packet struct {
+	ServiceType   uint16
+	ClientID      uint8
+	TransactionID uint16 // For CTL, only lower 8 bits used / 对于CTL，仅使用低8位
+	MessageID     uint16
+	IsIndication  bool // True if this is an unsolicited indication / 如果是不请自来的指示消息则为真
+	TLVs          []TLV
+}
+
+// Marshal serializes the packet to bytes / 将数据包序列化为字节
+func (p *Packet) Marshal() []byte {
+	// Serialize TLVs
+	var tlvBytes []byte
+	for _, t := range p.TLVs {
+		tlvBytes = append(tlvBytes, t.Marshal()...)
+	}
+
+	var body []byte
+	if p.ServiceType == ServiceControl {
+		// CTL uses 6-byte header / CTL使用6字节头
+		ctlH := CTLHeader{
+			ControlFlags:  0x00, // Request
+			TransactionID: uint8(p.TransactionID & 0xFF),
+			MessageID:     p.MessageID,
+			Length:        uint16(len(tlvBytes)),
+		}
+		body = append(ctlH.Marshal(), tlvBytes...)
+	} else {
+		// Regular services use 7-byte header / 普通服务使用7字节头
+		svcH := ServiceHeader{
+			ControlFlags:  0x00,
+			TransactionID: p.TransactionID,
+			MessageID:     p.MessageID,
+			Length:        uint16(len(tlvBytes)),
+		}
+		body = append(svcH.Marshal(), tlvBytes...)
+	}
+
+	// Outer frame header: real 6-byte QMUX (0x01) if ServiceType fits in 8
+	// bits (always true for real QMUX/qmi-proxy traffic), otherwise the
+	// synthetic 7-byte QRTR virtual header (0x02). See marshalFrameHeader.
+	// 外层帧头：若 ServiceType 能放入 8 位（真实 QMUX/qmi-proxy 流量始终
+	// 如此）则使用真实的 6 字节 QMUX 头（0x01），否则使用合成的 7 字节
+	// QRTR 虚拟头（0x02）。见 marshalFrameHeader。
+	return append(marshalFrameHeader(p.ServiceType, p.ClientID, len(body)), body...)
+}
+
+// UnmarshalPacket parses a complete QMI packet from bytes / 从字节解析完整的QMI数据包
+func UnmarshalPacket(data []byte) (*Packet, error) {
+	fh, err := unmarshalFrameHeader(data)
+	if err != nil {
+		return nil, err
+	}
+
+	expectedTotal := int(fh.length) + 1
+	if expectedTotal < fh.headerSize {
+		return nil, fmt.Errorf("invalid frame length: %d", fh.length)
+	}
+	if len(data) < expectedTotal {
+		return nil, fmt.Errorf("packet truncated: need %d, have %d", expectedTotal, len(data))
+	}
+	if len(data) > expectedTotal {
+		data = data[:expectedTotal]
+	}
+
+	p := &Packet{
+		ServiceType: fh.serviceType,
+		ClientID:    fh.clientID,
+	}
+
+	body := data[fh.headerSize:]
+
+	if fh.serviceType == ServiceControl {
+		if len(body) < CTLHeaderSize {
+			return nil, fmt.Errorf("body too short for CTL header")
+		}
+		ctlH, err := UnmarshalCTLHeader(body)
+		if err != nil {
+			return nil, err
+		}
+		p.TransactionID = uint16(ctlH.TransactionID)
+		p.MessageID = ctlH.MessageID
+		// CTL: 0x01 = Response, 0x02 = Indication
+		p.IsIndication = (ctlH.ControlFlags & 0x02) != 0
+
+		tlvData := body[CTLHeaderSize:]
+		if int(ctlH.Length) > len(tlvData) {
+			return nil, fmt.Errorf("CTL TLV data truncated: need %d, have %d", ctlH.Length, len(tlvData))
+		}
+		p.TLVs, err = ParseTLVs(tlvData[:ctlH.Length])
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if len(body) < ServiceHeaderSize {
+			return nil, fmt.Errorf("body too short for Service header")
+		}
+		svcH, err := UnmarshalServiceHeader(body)
+		if err != nil {
+			return nil, err
+		}
+		p.TransactionID = svcH.TransactionID
+		p.MessageID = svcH.MessageID
+		// Services: 0x02 = Response, 0x04 = Indication
+		// Many modems use bit 2 (0x04) for indications
+		p.IsIndication = (svcH.ControlFlags & 0x04) != 0
+
+		tlvData := body[ServiceHeaderSize:]
+		if int(svcH.Length) > len(tlvData) {
+			return nil, fmt.Errorf("service TLV data truncated: need %d, have %d", svcH.Length, len(tlvData))
+		}
+		p.TLVs, err = ParseTLVs(tlvData[:svcH.Length])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return p, nil
+}
+
+// GetResultCode extracts the result code from TLV 0x02 / 从TLV 0x02提取结果代码
+func (p *Packet) GetResultCode() (result uint16, err uint16, ok bool) {
+	tlv := FindTLV(p.TLVs, 0x02)
+	if tlv == nil || len(tlv.Value) < 4 {
+		return 0, 0, false
+	}
+	result = binary.LittleEndian.Uint16(tlv.Value[0:2])
+	err = binary.LittleEndian.Uint16(tlv.Value[2:4])
+	return result, err, true
+}
+
+// IsSuccess checks if the response indicates success / 检查响应是否表示成功
+func (p *Packet) IsSuccess() bool {
+	result, _, ok := p.GetResultCode()
+	return ok && result == 0
+}
+
+// CheckResult checks for QMI error and returns it as a Go error / 检查QMI错误并将其作为Go错误返回
+func (p *Packet) CheckResult() error {
+	result, errCode, ok := p.GetResultCode()
+	if !ok {
+		return fmt.Errorf("response missing result TLV")
+	}
+	if result != 0 {
+		return &QMIError{
+			Service:   p.ServiceType,
+			MessageID: p.MessageID,
+			Result:    result,
+			ErrorCode: errCode,
+		}
+	}
+	return nil
+}
+
+// ============================================================================
+// Helper functions for building TLVs / 用于构建TLV的辅助函数
+// ============================================================================
+
+func NewTLVUint8(t uint8, v uint8) TLV {
+	return TLV{Type: t, Value: []byte{v}}
+}
+
+func NewTLVUint16(t uint8, v uint16) TLV {
+	buf := make([]byte, 2)
+	binary.LittleEndian.PutUint16(buf, v)
+	return TLV{Type: t, Value: buf}
+}
+
+func NewTLVUint32(t uint8, v uint32) TLV {
+	buf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(buf, v)
+	return TLV{Type: t, Value: buf}
+}
+
+func NewTLVString(t uint8, s string) TLV {
+	return TLV{Type: t, Value: []byte(s)}
+}
+
+// ============================================================================
+// CTL service-identifier TLV (0x01) encode/decode /  CTL 服务标识 TLV (0x01) 编解码
+//
+// The real QMI CTL service's CTL_GET_CLIENT_ID / CTL_RELEASE_CLIENT_ID /
+// CTL_REVOKE_CLIENT_ID_IND messages all carry a TLV 0x01 whose service field
+// is genuinely, permanently 1 byte wide -- a real modem (QMUX or QRTR alike)
+// never understands anything else, because this is part of the actual QMI
+// CTL wire protocol content, not this package's own framing. Since
+// AllocateClientIDWithContext/ReleaseClientIDWithContext are shared between
+// the QMUX and QRTR transports, they must keep emitting the byte-identical
+// 1-byte-service form whenever service <= 0xFF (i.e. always, for a real
+// modem). Only requests/responses that our own local QRTR CTL simulation
+// (qrtrTransport) synthesizes for a QRTR-only service > 0xFF use the 2-byte
+// variant below -- that exchange never reaches a real modem.
+//
+// 真实 QMI CTL 服务的 CTL_GET_CLIENT_ID / CTL_RELEASE_CLIENT_ID /
+// CTL_REVOKE_CLIENT_ID_IND 消息均携带一个 TLV 0x01，其 service 字段真实且
+// 永久地只有 1 字节宽——真实 modem（无论 QMUX 还是 QRTR）都无法理解其他
+// 宽度，因为这是实际 QMI CTL 线协议内容的一部分，而非本包自身的封装。由于
+// AllocateClientIDWithContext/ReleaseClientIDWithContext 在 QMUX 与 QRTR
+// 传输之间共用，只要 service <= 0xFF（对真实 modem 而言恒成立）就必须继续
+// 发出字节级一致的单字节 service 格式。只有本包自身的本地 QRTR CTL 模拟
+// （qrtrTransport）为 QRTR 专属的 >0xFF 服务合成的请求/响应，才会使用下面
+// 的双字节变体——该交换绝不会到达真实 modem。
+
+// encodeCTLServiceOnlyTLV builds TLV 0x01 for CTL_GET_CLIENT_ID_REQ.
+func encodeCTLServiceOnlyTLV(service uint16) TLV {
+	if service <= 0xFF {
+		return TLV{Type: 0x01, Value: []byte{byte(service)}}
+	}
+	return TLV{Type: 0x01, Value: []byte{byte(service), byte(service >> 8)}}
+}
+
+// decodeCTLServiceOnlyTLV parses TLV 0x01 from CTL_GET_CLIENT_ID_REQ.
+func decodeCTLServiceOnlyTLV(v []byte) (service uint16, ok bool) {
+	switch len(v) {
+	case 1:
+		return uint16(v[0]), true
+	case 2:
+		return binary.LittleEndian.Uint16(v), true
+	default:
+		return 0, false
+	}
+}
+
+// encodeCTLServiceClientIDTLV builds TLV 0x01 for CTL_GET_CLIENT_ID_RESP /
+// CTL_RELEASE_CLIENT_ID_REQ / CTL_REVOKE_CLIENT_ID_IND.
+func encodeCTLServiceClientIDTLV(service uint16, clientID uint8) TLV {
+	if service <= 0xFF {
+		return TLV{Type: 0x01, Value: []byte{byte(service), clientID}}
+	}
+	return TLV{Type: 0x01, Value: []byte{byte(service), byte(service >> 8), clientID}}
+}
+
+// decodeCTLServiceClientIDTLV parses TLV 0x01 from CTL_GET_CLIENT_ID_RESP /
+// CTL_RELEASE_CLIENT_ID_REQ / CTL_REVOKE_CLIENT_ID_IND.
+func decodeCTLServiceClientIDTLV(v []byte) (service uint16, clientID uint8, ok bool) {
+	switch len(v) {
+	case 2:
+		return uint16(v[0]), v[1], true
+	case 3:
+		return binary.LittleEndian.Uint16(v[0:2]), v[2], true
+	default:
+		return 0, 0, false
+	}
+}

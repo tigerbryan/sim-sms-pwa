@@ -1,0 +1,30 @@
+# Default, hardware-free deployment. It has no /dev mapping and uses the mock
+# backend so it cannot open a modem control node.
+name: qmi-web
+
+services:
+  qmi-web:
+    image: local/qmi-web:1.1.0
+    container_name: qmi-web
+    restart: unless-stopped
+    environment:
+      QMI_WEB_BACKEND: mock
+      QMI_WEB_SMS_ONLY: "true"
+    ports:
+      - "127.0.0.1:${QMI_WEB_PORT:-7580}:7580"
+    volumes:
+      - "${QMI_WEB_DATA:-./data}:/data"
+      - "${QMI_WEB_CONFIG:-./config}:/config:ro"
+      - "${QMI_WEB_LOGS:-./logs}:/logs"
+    user: "65532:65532"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_add: []
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    privileged: false
+    mem_limit: 256m
+    network_mode: bridge

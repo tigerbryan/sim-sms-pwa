@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Upstream generated SQLite Windows crypto type names, not credentials"
+condition = "AND"
+paths = ['vendor/modernc\.org/sqlite/lib/sqlite_g_0000000000060000\.go']
+regexTarget = "match"
+regexes = ['(?:BCRYPT_AES_WRAP_KEY_BLOB = "Rfc3565KeyWrapBlob"|BCRYPT_DSA_KEY_BLOB_V2 = TBCRYPT_DSA_KEY_BLOB_V2|DHPRIVKEY_VER3 = TDHPRIVKEY_VER3|NCRYPT_PKCS8_PRIVATE_KEY_BLOB = "PKCS8_PRIVATEKEY"|PBCRYPT_DSA_KEY_BLOB_V2 = TPBCRYPT_DSA_KEY_BLOB_V2|T_BCRYPT_DSA_KEY_BLOB_V2 = TBCRYPT_DSA_KEY_BLOB_V2|T_PRIVKEYVER3 = TDHPRIVKEY_VER3|_BCRYPT_DSA_KEY_BLOB_V2 = T_BCRYPT_DSA_KEY_BLOB_V2|szOID_CERT_STRONG_KEY_OS_CURRENT = "szOID_CERT_STRONG_KEY_OS_1")']
