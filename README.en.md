@@ -2,6 +2,8 @@
 
 A self-hosted, receive-only SIM inbox for Linux and a Quectel EC25 QMI USB modem. Leave the SIM at home and read incoming SMS in an installable phone/desktop web app, with encrypted Web Push and unread badges where supported.
 
+Derived from MIT-licensed [QMI Web](https://github.com/xuanxuan1125/qmi-web), with upstream copyright retained. See [NOTICE](NOTICE.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+
 [中文完整文档](README.md) · [Hardware and buying links](docs/HARDWARE.md) · [Deployment](docs/DEPLOYMENT.md) · [Copyable agent prompt](AGENT_PROMPT.md)
 
 ## Quick start (no modem)

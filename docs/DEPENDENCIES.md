@@ -1,24 +1,9 @@
 # Dependency inventory
 
-The checked-in go.mod, go.sum, vendor/modules.txt, web/package.json, and
-web/package-lock.json are the authoritative resolved dependency records.
+The authoritative version records are `go.mod`, `go.sum`, `vendor/modules.txt`, `web/package.json` and `web/package-lock.json`.
 
-## Direct Go dependencies
+Full upstream/project attribution and dependency links are maintained in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md). Verbatim npm license texts and copyright notices are in [licenses/npm/](../licenses/npm); the collected machine-readable inventory is [npm-inventory.json](../licenses/npm-inventory.json). Go notices remain inside `vendor/` and are copied into binary release archives.
 
-| Module | Version | License status |
-| --- | --- | --- |
-| github.com/iniwex5/qmi-go | v0.6.4 | MIT |
-| github.com/warthog618/sms | v0.3.0 | MIT |
-| golang.org/x/crypto | v0.54.0 | BSD-style Go Authors notice |
-| golang.org/x/term | v0.45.0 | BSD-style Go Authors notice |
-| gopkg.in/yaml.v3 | v3.0.1 | MIT and Apache-2.0 notices |
-| modernc.org/sqlite | v1.56.0 | BSD-style notice |
+The public repository does not ship an npm offline cache. After a reviewed dependency change, install the exact lockfile and run `python3 scripts/collect-npm-licenses.py`, then review newly introduced licenses/notices. Do not drop copyright notices or relabel dependencies as our original work.
 
-## Direct npm dependencies
-
-Vue, Vue Router, Pinia, Vite, Vitest, Vue Test Utils, jsdom, and their locked
-transitives are recorded in web/package-lock.json. Their package metadata and
-license fields are preserved in the release npm cache.
-
-No third-party source is modified by QMI Web. See THIRD_PARTY_NOTICES.md and
-THIRD_PARTY_PATCHES.md.
+See [THIRD_PARTY_PATCHES.md](THIRD_PARTY_PATCHES.md) before modifying a dependency's source. No dependency source was changed by the license-notice correction.

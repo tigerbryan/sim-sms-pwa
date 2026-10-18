@@ -32,15 +32,15 @@ ip route show default
 
 ## 预编译安装包（可选路径）
 
-不想在树莓派上装 Go/Node，可以从 [Releases](https://github.com/tigerbryan/sim-sms-pwa/releases) 下载适合本机架构的发布包和 `SHA256SUMS`。以下用 1.1.0 ARM64 为例：
+不想在树莓派上装 Go/Node，可以从 [Releases](https://github.com/tigerbryan/sim-sms-pwa/releases) 下载适合本机架构的发布包和 `SHA256SUMS`。以下用 1.1.1 ARM64 为例：
 
 ```bash
-curl -fLO https://github.com/tigerbryan/sim-sms-pwa/releases/download/v1.1.0/sim-sms-pwa-1.1.0-linux-arm64.tar.gz
-curl -fLO https://github.com/tigerbryan/sim-sms-pwa/releases/download/v1.1.0/SHA256SUMS
-grep 'sim-sms-pwa-1.1.0-linux-arm64.tar.gz$' SHA256SUMS | sha256sum -c -
+curl -fLO https://github.com/tigerbryan/sim-sms-pwa/releases/download/v1.1.1/sim-sms-pwa-1.1.1-linux-arm64.tar.gz
+curl -fLO https://github.com/tigerbryan/sim-sms-pwa/releases/download/v1.1.1/SHA256SUMS
+grep 'sim-sms-pwa-1.1.1-linux-arm64.tar.gz$' SHA256SUMS | sha256sum -c -
 # 必须看到 OK 后再解压，不要忽略校验失败。
-tar -xzf sim-sms-pwa-1.1.0-linux-arm64.tar.gz
-cd sim-sms-pwa-1.1.0-linux-arm64
+tar -xzf sim-sms-pwa-1.1.1-linux-arm64.tar.gz
+cd sim-sms-pwa-1.1.1-linux-arm64
 ```
 
 SHA256 检查传输完整性，不是独立签名。下载来自本仓库正式发布页，不使用第三方重打包。

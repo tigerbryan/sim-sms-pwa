@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 — 2026-10-18
+
+- Complete frontend attribution, including Lucide ISC and Feather-derived MIT notices.
+- Preserve full collected npm license texts in source and Linux release packages, alongside existing Go notices.
+- Correct outdated offline-cache statements; retain original 1.1.0 binaries and provide supplemental licenses separately.
+- Application behavior and modem operations are unchanged by this notice correction.
+
 ## 1.1.0 — 2026-10-18
 
 First independent public source snapshot derived from MIT-licensed QMI Web.

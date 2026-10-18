@@ -2,6 +2,8 @@
 
 把一张实体 SIM 留在家里的 Linux 设备上，用手机或电脑的 PWA 安全查看短信。
 
+本项目基于 [QMI Web](https://github.com/xuanxuan1125/qmi-web) 的 MIT 开源代码扩展，并非从零原创；上游及依赖署名见 [NOTICE](NOTICE.md) 和 [第三方许可](THIRD_PARTY_NOTICES.md)。
+
 [English](README.en.md) · [硬件与购买指南](docs/HARDWARE.md) · [部署教程](docs/DEPLOYMENT.md) · [智能体构建提示词](AGENT_PROMPT.md)
 
 ![手机收件箱示例，所有内容均为虚构](docs/images/inbox-demo.png)
@@ -39,7 +41,7 @@ flowchart LR
 
 ## 预编译安装包
 
-[下载 v1.1.0 Linux ARM64 / amd64 安装包](https://github.com/tigerbryan/sim-sms-pwa/releases/tag/v1.1.0)，包含程序、原生安装器、配置示例、完整文档和第三方许可。
+[下载 v1.1.1 Linux ARM64 / amd64 安装包](https://github.com/tigerbryan/sim-sms-pwa/releases/tag/v1.1.1)，包含程序、原生安装器、配置示例、完整文档和第三方许可。
 
 - Pi 5 / 64 位 Raspberry Pi OS 选 **linux-arm64**；常见 Intel/AMD Linux 选 **linux-amd64**。
 - 下载对应 `.tar.gz` 和 `SHA256SUMS`，按[部署教程](docs/DEPLOYMENT.md#预编译安装包可选路径)校验，再解压安装。

@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='sim-sms-package-') as tmp:
     shutil.copy2(binary, target / 'build/qmi-web')
     for name_file in ['LICENSE', 'NOTICE.md', 'THIRD_PARTY_NOTICES.md', 'README.md', 'README.en.md', 'AGENT_PROMPT.md', 'SECURITY.md', 'CONTRIBUTING.md', 'AGENTS.md', 'VERSION', 'install.sh']:
         shutil.copy2(root / name_file, target / name_file)
-    for directory in ['docs', 'config']:
+    for directory in ['docs', 'config', 'licenses']:
         shutil.copytree(root / directory, target / directory)
     (target / 'scripts').mkdir()
     for name_file in ['install-native.sh', 'install.sh', 'update.sh', 'uninstall.sh']:
