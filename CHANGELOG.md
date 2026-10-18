@@ -5,7 +5,8 @@
 - Complete frontend attribution, including Lucide ISC and Feather-derived MIT notices.
 - Preserve full collected npm license texts in source and Linux release packages, alongside existing Go notices.
 - Correct outdated offline-cache statements; retain original 1.1.0 binaries and provide supplemental licenses separately.
-- Application behavior and modem operations are unchanged by this notice correction.
+- Upgrade transitive `github.com/golang-jwt/jwt/v5` from 5.2.1 to 5.2.2 to address GHSA-mh63-6h87-95cp.
+- SMS reception and modem operations are unchanged by this release.
 
 ## 1.1.0 — 2026-10-18
 
