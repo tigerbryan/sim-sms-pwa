@@ -65,8 +65,6 @@ device_info() {
   printf '%s\n' "DEVICE=$device" "MAJOR_MINOR=$(stat -c '%t:%T' "$device" 2>/dev/null || true)" "DRIVER=$driver" "VIDPID=${vid:-unknown}:${pid:-unknown}" "IFACE=$iface"
 }
 
-units=()
-
 case $mode in
   status)
     device_info

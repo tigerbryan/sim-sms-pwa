@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Restore exactly the states captured by qmi-claim.sh isolate.
 set -Eeuo pipefail
 dry_run=false

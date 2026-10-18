@@ -78,8 +78,8 @@ proc_detail() {
   exe=$(readlink "/proc/$pid/exe" 2>/dev/null || true)
   cwd=$(readlink "/proc/$pid/cwd" 2>/dev/null || true)
   cgroup=$(tr '\n' ';' < "/proc/$pid/cgroup" 2>/dev/null || true)
-  parent_cmd=$( [[ $ppid =~ ^[0-9]+$ ]] && proc_cmdline "$ppid" || true )
-  grandparent_cmd=$( [[ $ppid =~ ^[0-9]+$ ]] && proc_cmdline "$(proc_field "$ppid" 4)" || true )
+  parent_cmd=$( if [[ $ppid =~ ^[0-9]+$ ]]; then proc_cmdline "$ppid" || true; fi )
+  grandparent_cmd=$( if [[ $ppid =~ ^[0-9]+$ ]]; then proc_cmdline "$(proc_field "$ppid" 4)" || true; fi )
   log_event "FOREIGN_PROCESS timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ) name=$name pid=$pid ppid=$ppid start=$start uid=$uid gid=$gid exe=$exe cwd=$cwd cgroup=$cgroup cmd=$cmd parent_cmd=$parent_cmd grandparent_cmd=$grandparent_cmd"
 }
 
