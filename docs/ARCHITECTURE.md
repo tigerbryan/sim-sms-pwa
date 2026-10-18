@@ -14,6 +14,9 @@ node. Its operational surface is intentionally limited to DMS, UIM, NAS,
 read-only WDS status, WMS inbound reads, and event subscription. The service
 does not create a cellular data session or expose modem write controls.
 
-The Docker runtime is an unprivileged scratch image. No-device and hardware
-Compose definitions are separate so the safe default cannot inherit a device
-mapping.
+The supported public setup is the Linux native systemd installer, with explicit
+single-node modem selection and loopback bootstrap. Optional Docker examples
+retain separate no-device/hardware definitions and non-root container settings;
+they are advanced upstream references, not the tested default installation path.
+The public CI exercises the native installer with a mock backend. Real module,
+carrier and lock-screen delivery acceptance still requires the user's hardware.

@@ -29,7 +29,7 @@ with tempfile.TemporaryDirectory(prefix='sim-sms-package-') as tmp:
     for directory in ['docs', 'config']:
         shutil.copytree(root / directory, target / directory)
     (target / 'scripts').mkdir()
-    for name_file in ['install-native.sh', 'install.sh', 'update.sh']:
+    for name_file in ['install-native.sh', 'install.sh', 'update.sh', 'uninstall.sh']:
         shutil.copy2(root / 'scripts' / name_file, target / 'scripts' / name_file)
     shutil.copytree(root / 'ops', target / 'ops', ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
     for path in (root / 'vendor').rglob('*'):
