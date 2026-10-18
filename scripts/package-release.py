@@ -38,6 +38,10 @@ with tempfile.TemporaryDirectory(prefix='sim-sms-package-') as tmp:
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, dest)
     archive = args.output / (name + '.tar.gz')
+    def public_metadata(info):
+        info.uid = info.gid = 0
+        info.uname = info.gname = ''
+        return info
     with tarfile.open(archive, 'w:gz') as tar:
-        tar.add(target, arcname=name)
+        tar.add(target, arcname=name, filter=public_metadata)
     print(archive.name, hashlib.sha256(archive.read_bytes()).hexdigest())
