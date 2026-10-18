@@ -30,6 +30,23 @@ ip route show default
 
 如其他进程占用，先明确归属；不自动杀进程或停止 ModemManager。不要运行任何蜂窝拨号命令，也不要在桌面网络面板里创建移动宽带连接。不要为收短信填写 APN。运行 `ip route` 只能检查路由，不能证明运营商计费为零。
 
+## 预编译安装包（可选路径）
+
+不想在树莓派上装 Go/Node，可以从 [Releases](https://github.com/tigerbryan/sim-sms-pwa/releases) 下载适合本机架构的发布包和 `SHA256SUMS`。以下用 1.1.0 ARM64 为例：
+
+```bash
+curl -fLO https://github.com/tigerbryan/sim-sms-pwa/releases/download/v1.1.0/sim-sms-pwa-1.1.0-linux-arm64.tar.gz
+curl -fLO https://github.com/tigerbryan/sim-sms-pwa/releases/download/v1.1.0/SHA256SUMS
+grep 'sim-sms-pwa-1.1.0-linux-arm64.tar.gz$' SHA256SUMS | sha256sum -c -
+# 必须看到 OK 后再解压，不要忽略校验失败。
+tar -xzf sim-sms-pwa-1.1.0-linux-arm64.tar.gz
+cd sim-sms-pwa-1.1.0-linux-arm64
+```
+
+SHA256 检查传输完整性，不是独立签名。下载来自本仓库正式发布页，不使用第三方重打包。
+
+该目录已包含 `build/qmi-web`，可跳过第 3 节，直接按第 4 节安装，仍需前面的主机/驱动/设备归属检查。这里不会联网更新设备固件。
+
 ## 3. 构建软件
 
 需要 Git、Go（`go.mod` 所列版本）和 Node.js 24/npm。系统依赖可先安装：

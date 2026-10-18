@@ -1,5 +1,7 @@
 # Exclusive QMI host ownership
 
+> Advanced upstream container design reference. The public default is the native installer in [DEPLOYMENT.md](DEPLOYMENT.md). Do not treat historical `install.sh --mode` references as current commands.
+
 QMI Web hardware mode is receive-only SMS software, not a general modem
 manager. The selected `/dev/cdc-wdmX` must have one owner for the entire
 deployment and soak. A host process that only asks for read-only WDS status

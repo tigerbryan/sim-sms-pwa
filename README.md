@@ -37,6 +37,14 @@ flowchart LR
 3. **树莓派接入真实 SIM**：按[完整部署教程](docs/DEPLOYMENT.md)操作，再完成运营商短信验收。
 4. **让自己的智能体代装**：复制 [AGENT_PROMPT.md](AGENT_PROMPT.md)，在自己的环境提供主机访问授权，不要在聊天里发密码、验证码或密钥。
 
+## 预编译安装包
+
+[下载 v1.1.0 Linux ARM64 / amd64 安装包](https://github.com/tigerbryan/sim-sms-pwa/releases/tag/v1.1.0)，包含程序、原生安装器、配置示例、完整文档和第三方许可。
+
+- Pi 5 / 64 位 Raspberry Pi OS 选 **linux-arm64**；常见 Intel/AMD Linux 选 **linux-amd64**。
+- 下载对应 `.tar.gz` 和 `SHA256SUMS`，按[部署教程](docs/DEPLOYMENT.md#预编译安装包可选路径)校验，再解压安装。
+- 生产用预编译包时无需 Go/Node；需要源码定制才按下方构建。发布包不能代替实际模组和 SIM 验收。
+
 ## 本地构建与体验
 
 需要 Go（版本见 `go.mod`）、Node.js 24、npm；真实 QMI 设备接入需要 Linux。

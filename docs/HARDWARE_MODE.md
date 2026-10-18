@@ -1,5 +1,7 @@
 # Hardware mode
 
+> Advanced upstream container design reference. The public default is the native installer in [DEPLOYMENT.md](DEPLOYMENT.md). Do not treat historical `install.sh --mode` references as current commands.
+
 Hardware mode is optional, explicit, and SMS-only. It is designed for one QMI
 control node, not a general modem-management shell.
 
